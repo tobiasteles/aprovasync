@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+/* ── Identidade AprovaSync ───────────────────────────────────────────
+   Azul Royal = foco e confiança · Dourado = conquista · Off-white = respiro
+   Regra de uso: azul conduz (ações), dourado celebra (progresso/aprovação),
+   o resto é calma. Nunca vermelho para "atraso": usamos laranja suave.   */
+@theme {
+  --color-royal-50: #eef3ff;
+  --color-royal-100: #dce6ff;
+  --color-royal-200: #bccfff;
+  --color-royal-300: #8fadf7;
+  --color-royal-400: #5b82ea;
+  --color-royal-500: #3a63d9;
+  --color-royal-600: #2347c9;
+  --color-royal-700: #1b39a6;
+  --color-royal-800: #172f82;
+  --color-royal-900: #12255f;
+
+  --color-gold-100: #fff3c9;
+  --color-gold-200: #ffe58f;
+  --color-gold-300: #fdd24f;
+  --color-gold-400: #f8be1d;
+  --color-gold-500: #f4b400;
+  --color-gold-600: #c98f00;
+  --color-gold-700: #8a5f00;
+
+  --color-paper: #faf8f3;
+  --color-paper-2: #f3efe5;
+  --color-ink: #12203f;
+  --color-ink-soft: #4a5776;
+  --color-line: #e6e1d3;
+  --color-ok: #0a7d56;
+  --color-warn: #c2410c;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-gold-400);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-royal-600 text-white shadow-sm hover:bg-royal-700 active:bg-royal-800;
+  }
+  .btn-gold {
+    @apply bg-gold-500 text-ink shadow-sm hover:bg-gold-400 active:bg-gold-600;
+  }
+  .btn-ghost {
+    @apply border border-line bg-white text-ink hover:border-royal-300 hover:bg-royal-50;
+  }
+  .card {
+    @apply rounded-3xl border border-line bg-white p-6 shadow-[0_1px_0_rgba(18,32,63,0.04),0_8px_24px_-12px_rgba(18,32,63,0.12)];
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-soft/60
+      focus:border-royal-500 focus:outline-none focus:ring-4 focus:ring-royal-100;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+  .btn-danger {
+    @apply border border-orange-300 bg-white text-warn hover:bg-orange-50;
+  }
+  .legal h2 {
+    @apply mb-3 mt-10 text-xl font-extrabold tracking-tight text-ink;
+  }
+  .legal h3 {
+    @apply mb-2 mt-6 text-base font-bold text-ink;
+  }
+  .legal p,
+  .legal li {
+    @apply text-[15px] leading-relaxed text-ink-soft;
+  }
+  .legal p {
+    @apply mb-3;
+  }
+  .legal ul {
+    @apply mb-4 list-disc space-y-1.5 pl-6;
+  }
+  .legal a {
+    @apply font-semibold text-royal-600 underline;
+  }
+  .legal table {
+    @apply mb-4 w-full border-collapse text-left text-sm;
+  }
+  .legal th,
+  .legal td {
+    @apply border border-line px-3 py-2 align-top text-ink-soft;
+  }
+  .legal th {
+    @apply bg-paper-2 font-semibold text-ink;
+  }
+  .page {
+    @apply mx-auto w-full max-w-5xl px-5;
+  }
+}

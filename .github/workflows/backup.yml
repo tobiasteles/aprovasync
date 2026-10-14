@@ -1,0 +1,35 @@
+name: Backup do banco (Neon)
+
+# Cópia lógica semanal (pg_dump), criptografada, guardada como artefato por 30 dias.
+# Complementa o "restore point-in-time" do Neon: este protege contra exclusão de projeto/conta.
+on:
+  schedule:
+    - cron: '0 6 * * 0' # domingos 06:00 UTC (03:00 em Brasília)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      PG_VERSION: '17' # use a MESMA versão major do seu projeto Neon (Settings → General)
+    steps:
+      - name: pg_dump
+        env:
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+        run: |
+          set -o pipefail
+          docker run --rm postgres:${PG_VERSION} pg_dump "$DATABASE_URL_DIRECT" --no-owner --no-privileges | gzip > backup.sql.gz
+          test -s backup.sql.gz
+
+      - name: Criptografar (AES-256)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:BACKUP_PASSPHRASE -in backup.sql.gz -out "backup-$(date +%F).sql.gz.enc"
+          rm backup.sql.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-neon
+          path: backup-*.enc
+          retention-days: 30
