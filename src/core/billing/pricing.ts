@@ -10,26 +10,29 @@
  * Valores abaixo são pontos de partida: ajuste conforme seus testes de preço.
  */
 export const PRICING = {
-  currency: 'brl',
+  currency: "brl",
   trialDays: 7,
   passGraceDays: 7,
   passMinDays: 30,
   pastDueGraceDays: 3,
   pixExpiresMinutes: 30,
   subscription: {
-    id: 'monthly',
-    name: 'Assinatura Mensal',
-    description: 'Planos ilimitados, Imprevisto ilimitado.',
+    id: "monthly",
+    name: "Assinatura Mensal",
+    description: "Planos ilimitados, Imprevisto ilimitado.",
     amountCents: 1990,
   },
   pass: {
-    id: 'pass',
-    name: 'Passe do Edital',
-    description: 'Um plano completo até a prova (+7 dias). Pagamento único.',
-    amountCents: 5990,
+    id: "pass",
+    name: "Passe do Edital",
+    description: "Um plano completo até a prova (+7 dias). Pagamento único.",
+    amountCents: 100,
   },
 } as const;
 
 export function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return (cents / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
