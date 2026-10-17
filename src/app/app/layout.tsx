@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Logo } from "@/components/brand/Logo";
 import { requireUser } from "@/lib/auth";
 import { isBeta } from "@/lib/config";
@@ -30,6 +31,7 @@ export default async function AppLayout({
   return (
     <div>
       <Analytics />
+      <SpeedInsights />
       <header className="border-b border-line bg-white/70 backdrop-blur">
         <div className="page flex flex-wrap items-center justify-between gap-3 py-3">
           <Link href="/app">
