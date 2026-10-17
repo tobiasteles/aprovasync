@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: { default: 'AprovaSync — o cronograma que se ajusta quando a vida acontece', template: '%s · AprovaSync' },
   description:
     'Cronograma de estudos adaptativo para concursos e ENEM. Perdeu um dia? O AprovaSync recalcula sua carga até a data da prova, sem estourar suas horas.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://aprovasync.vercel.app/'),
 };
 
 export const viewport: Viewport = { themeColor: '#faf8f3' };
