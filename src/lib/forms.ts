@@ -1,6 +1,7 @@
 export interface SubjectDraft {
   name: string;
   weight: number;
+  topics?: string[];
 }
 
 const toNumber = (v: FormDataEntryValue | null) => Number(String(v ?? '0').replace(',', '.'));
@@ -19,6 +20,7 @@ export function parseAvailability(form: FormData): number[] | null {
 export function parseSubjects(form: FormData): { subjects: SubjectDraft[]; error?: string } {
   const names = form.getAll('subjectName').map((v) => String(v).trim());
   const weights = form.getAll('subjectWeight').map((v) => Number(v));
+  const topicsRaw = form.getAll('subjectTopics').map((v) => String(v));
   const subjects: SubjectDraft[] = [];
   const seen = new Set<string>();
 
@@ -29,9 +31,32 @@ export function parseSubjects(form: FormData): { subjects: SubjectDraft[]; error
     const key = names[i].toLowerCase();
     if (seen.has(key)) return { subjects: [], error: `A matéria "${names[i]}" aparece duas vezes.` };
     seen.add(key);
-    subjects.push({ name: names[i].slice(0, 60), weight });
+    const topics = parseTopics(topicsRaw[i]);
+    subjects.push({ name: names[i].slice(0, 60), weight, topics });
   }
   if (subjects.length === 0) return { subjects: [], error: 'Adicione ao menos uma matéria.' };
   if (subjects.length > 30) return { subjects: [], error: 'Use no máximo 30 matérias por plano.' };
   return { subjects };
+}
+
+function parseTopics(raw: string | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return undefined;
+    return arr.map((t) => String(t).slice(0, 120)).slice(0, 12);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Lê o resumo do edital (hidden input JSON), se o plano nasceu de um PDF. */
+export function parseEditalMeta(form: FormData): import('@/core/edital').EditalMeta | undefined {
+  const raw = form.get('editalMeta');
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(String(raw));
+  } catch {
+    return undefined;
+  }
 }

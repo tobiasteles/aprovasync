@@ -1,38 +1,75 @@
 @import 'tailwindcss';
 
-/* ── Identidade AprovaSync ───────────────────────────────────────────
+/* ── Identidade AprovaSync v2 ────────────────────────────────────────
    Azul Royal = foco e confiança · Dourado = conquista · Off-white = respiro
    Regra de uso: azul conduz (ações), dourado celebra (progresso/aprovação),
    o resto é calma. Nunca vermelho para "atraso": usamos laranja suave.   */
 @theme {
-  --color-royal-50: #eef3ff;
-  --color-royal-100: #dce6ff;
-  --color-royal-200: #bccfff;
-  --color-royal-300: #8fadf7;
-  --color-royal-400: #5b82ea;
-  --color-royal-500: #3a63d9;
-  --color-royal-600: #2347c9;
-  --color-royal-700: #1b39a6;
-  --color-royal-800: #172f82;
-  --color-royal-900: #12255f;
+  --color-royal-50: #eef2ff;
+  --color-royal-100: #dde6ff;
+  --color-royal-200: #b9c9fb;
+  --color-royal-300: #8ba3f2;
+  --color-royal-400: #5676e3;
+  --color-royal-500: #3252d2;
+  --color-royal-600: #1e3fc4;
+  --color-royal-700: #1832a0;
+  --color-royal-800: #15297f;
+  --color-royal-900: #10205e;
 
-  --color-gold-100: #fff3c9;
-  --color-gold-200: #ffe58f;
-  --color-gold-300: #fdd24f;
-  --color-gold-400: #f8be1d;
-  --color-gold-500: #f4b400;
-  --color-gold-600: #c98f00;
-  --color-gold-700: #8a5f00;
+  --color-gold-100: #fff2c4;
+  --color-gold-200: #ffe085;
+  --color-gold-300: #fccb42;
+  --color-gold-400: #f2b705;
+  --color-gold-500: #d99f00;
+  --color-gold-600: #a97c00;
+  --color-gold-700: #7a5900;
 
   --color-paper: #faf8f3;
   --color-paper-2: #f3efe5;
-  --color-ink: #12203f;
+  --color-ink: #11203f;
   --color-ink-soft: #4a5776;
   --color-line: #e6e1d3;
   --color-ok: #0a7d56;
   --color-warn: #c2410c;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Inter autohospedada (sem chamada a CDN de terceiros: consistência de marca e menos uma dependência externa) */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-800.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
 }
 
 @layer base {

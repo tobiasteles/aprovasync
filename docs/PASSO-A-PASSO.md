@@ -23,6 +23,7 @@ Todas as chaves abaixo vão em `.env.local`. **Nunca** suba esse arquivo para o 
 | **Mercado Pago** · mercadopago.com.br | Pix | obrigatória |
 | **GitHub** · github.com | Guardar o código | obrigatória |
 | **Vercel** · vercel.com | Colocar no ar | obrigatória |
+| **Anthropic (Claude)** · console.anthropic.com | Leitura do PDF do edital | obrigatória se quiser essa função |
 | **Resend** · resend.com | E-mail de "esqueci minha senha" | recomendada |
 | **Upstash** · upstash.com | Limite de tentativas de login | recomendada |
 
@@ -55,7 +56,14 @@ Cole o resultado em `AUTH_SECRET=`. (Em produção use outro valor.)
 2. Na aplicação, abra **Credenciais de produção** (pode exigir verificar a conta) e copie o **Access Token** (`APP_USR-...`) → `MERCADOPAGO_ACCESS_TOKEN=`.
 3. O segredo do webhook (`MERCADOPAGO_WEBHOOK_SECRET`) você pega na **Parte 7**, depois de ter a URL do site no ar. Por enquanto deixe vazio (em desenvolvimento funciona sem).
 
-### 3.5 E-mail e limite de tentativas (recomendados)
+### 3.5 Leitura do edital em PDF (Anthropic)
+1. Crie conta em **console.anthropic.com**.
+2. **API Keys → Create Key** → copie o valor (`sk-ant-...`) → `ANTHROPIC_API_KEY=`.
+3. É cobrado por uso (poucos centavos por edital lido). Acompanhe o consumo em **console.anthropic.com → Usage**.
+4. Sem essa chave, tudo o resto do site funciona normalmente — só o botão "Enviar PDF do edital" para de funcionar, e a pessoa preenche o formulário manualmente.
+5. **A função é exclusiva para assinantes** (protege seu gasto na API): durante o teste grátis, aparece um convite para assinar no lugar do botão de upload. Para testar como assinante, confirme uma assinatura primeiro (Parte 5, passo 3).
+
+### 3.6 E-mail e limite de tentativas (recomendados)
 - **Resend:** *Domains → Add Domain* e crie os registros DNS que ele pedir; depois *API Keys → Create* → `RESEND_API_KEY=`; `EMAIL_FROM="AprovaSync <nao-responda@seudominio.com.br>"`. **Sem isso, o "esqueci minha senha" não envia e-mail em produção.**
 - **Upstash:** *Create Database* (Redis) → aba **REST API** → `UPSTASH_REDIS_REST_URL=` e `UPSTASH_REDIS_REST_TOKEN=`.
 
@@ -74,6 +82,7 @@ RESEND_API_KEY=
 EMAIL_FROM=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
+ANTHROPIC_API_KEY=sk-ant-...
 
 # Aparece nos Termos e na Privacidade (preencha com o que tiver; o resto você ajusta depois)
 NEXT_PUBLIC_COMPANY_NAME=Seu Nome ou Razão Social
@@ -168,6 +177,7 @@ Pronto: você está cobrando.
 |---|---|
 | Pagou e o plano não liberou (cartão) | Webhook do Stripe não cadastrado, `STRIPE_WEBHOOK_SECRET` errado, ou ambiente (teste/real) misturado |
 | Pagou o Pix e não liberou | A tela do Pix confirma sozinha a cada 4 s; se não, confira o webhook do Mercado Pago e o `MERCADOPAGO_WEBHOOK_SECRET` |
+| "Enviar PDF do edital" dá erro | Falta `ANTHROPIC_API_KEY`, ou o PDF é uma imagem escaneada sem texto (sem OCR) |
 | Erro 500 só em produção | Faltou variável na Vercel ou não rodou `db:migrate` no banco de produção |
 | "Esqueci minha senha" não chega | Sem `RESEND_API_KEY` ou `EMAIL_FROM` fora do domínio verificado |
 | Termos mostram `[... — preencher]` | Variáveis `NEXT_PUBLIC_COMPANY_*` vazias **no momento do build**: preencha e faça Redeploy |

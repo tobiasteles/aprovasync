@@ -1,5 +1,5 @@
 {
-  "id": "4b3c1f13-9892-4451-a367-dfeab1abb9e2",
+  "id": "bbc429da-f1a8-4fed-8e0b-bdbb753a354b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -582,6 +582,12 @@
           "notNull": true,
           "default": "'active'"
         },
+        "edital_meta": {
+          "name": "edital_meta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -711,11 +717,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "review_offset_days": {
+          "name": "review_offset_days",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "completed_at": {
           "name": "completed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "reviews_generated": {
+          "name": "reviews_generated",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -863,6 +882,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "topics": {
+          "name": "topics",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1130,7 +1155,8 @@
       "schema": "public",
       "values": [
         "generated",
-        "rescheduled"
+        "rescheduled",
+        "review"
       ]
     },
     "public.session_status": {

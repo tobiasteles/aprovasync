@@ -6,13 +6,14 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth';
 import { friendlyScheduleError } from '@/lib/errors';
-import { parseAvailability, parseSubjects } from '@/lib/forms';
+import { parseAvailability, parseEditalMeta, parseSubjects } from '@/lib/forms';
 import { todayInSaoPaulo } from '@/lib/today';
 import { getDb } from '../db/client';
 import { studyPlans, studySessions } from '../db/schema';
 import { reportSetback, updateAvailability, type SetbackOutcome, type SetbackScope } from '../services/adjustment.service';
 import { getUserAccess } from '../services/access.service';
 import { createPlan } from '../services/plan.service';
+import { scheduleReviewsForSession } from '../services/review.service';
 import type { FormState } from './auth.actions';
 
 const planSchema = z.object({
@@ -38,6 +39,7 @@ export async function createPlanAction(_prev: FormState, formData: FormData): Pr
       startDate: todayInSaoPaulo(),
       subjects,
       availabilityMinutes,
+      editalMeta: parseEditalMeta(formData),
     });
   } catch (e) {
     const friendly = friendlyScheduleError(e);
@@ -80,6 +82,11 @@ export async function toggleSessionAction(formData: FormData): Promise<void> {
     .set({ status: done ? 'pending' : 'completed', completedAt: done ? null : new Date() })
     .where(eq(studySessions.id, session.id));
   void user;
+
+  if (!done) {
+    // Acabou de concluir (não estava concluída antes): agenda as revisões de 24h/7d/30d.
+    await scheduleReviewsForSession(session.id);
+  }
   revalidatePath(`/app/planos/${planId}`);
   revalidatePath('/app');
 }

@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
     "@neondatabase/serverless": "^1.2.0",
     "@sentry/nextjs": "^11.7.0",
     "@upstash/ratelimit": "^2.2.0",
@@ -24,6 +25,7 @@
     "drizzle-orm": "^0.45.4",
     "jose": "^6.2.12",
     "next": "^16.4.0",
+    "pdf-parse": "^2.4.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1",
@@ -39,8 +41,11 @@
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
     "drizzle-kit": "^0.31.11",
+    "pdf-lib": "^1.17.1",
     "postcss": "^8.5.30",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
+    "to-ico": "^1.1.5",
     "typescript": "^7.0.2",
     "vitest": "^5.0.4"
   }

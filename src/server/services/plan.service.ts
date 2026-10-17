@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { generateSchedule } from '@/core/schedule';
+import type { EditalMeta } from '@/core/edital';
 import { getDb } from '../db/client';
 import { planAvailability, studyPlans, studySessions, subjects } from '../db/schema';
 
@@ -10,8 +11,10 @@ export interface PlanInput {
   name: string;
   startDate: string;
   examDate: string;
-  subjects: { name: string; weight: number }[];
+  subjects: { name: string; weight: number; topics?: string[] }[];
   availabilityMinutes: number[];
+  /** Presente quando o plano nasceu da leitura de um PDF de edital. */
+  editalMeta?: EditalMeta;
 }
 
 /** Gera o cronograma (pode lançar ScheduleError) e grava tudo em uma transação. */
@@ -26,7 +29,7 @@ export async function createPlan(userId: string, input: PlanInput): Promise<stri
   return getDb().transaction(async (tx) => {
     const [plan] = await tx
       .insert(studyPlans)
-      .values({ userId, name: input.name, startDate: input.startDate, examDate: input.examDate })
+      .values({ userId, name: input.name, startDate: input.startDate, examDate: input.examDate, editalMeta: input.editalMeta ?? null })
       .returning({ id: studyPlans.id });
 
     await tx
@@ -42,6 +45,7 @@ export async function createPlan(userId: string, input: PlanInput): Promise<stri
           weight: s.weight,
           position: i,
           color: SUBJECT_COLORS[i % SUBJECT_COLORS.length],
+          topics: s.topics && s.topics.length > 0 ? s.topics : null,
         })),
       )
       .returning({ id: subjects.id, name: subjects.name });

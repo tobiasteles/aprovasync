@@ -1,28 +1,59 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { calculateProgress, daysBetween } from '@/core/schedule';
+import { calculateProgress, computePace, daysBetween } from '@/core/schedule';
 import { AvailabilityFields } from '@/components/plan/AvailabilityFields';
+import { ConsistencyMap, type DayMinutes } from '@/components/plan/ConsistencyMap';
+import { PaceBadge } from '@/components/plan/PaceBadge';
 import { SessionRow } from '@/components/plan/SessionRow';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { SubmitButton } from '@/components/ui/SubmitButton';
+import { isBeta } from '@/lib/config';
 import { requireUser } from '@/lib/auth';
 import { formatDateLong, formatDay, formatMinutes } from '@/lib/format';
 import { todayInSaoPaulo } from '@/lib/today';
 import { setbackAction, updateAvailabilityAction } from '@/server/actions/plan.actions';
 import { getUserAccess } from '@/server/services/access.service';
+import type { Access } from '@/core/billing';
 import { loadPlanView } from '@/server/services/plan.service';
 
 type SP = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-function Notice({ sp }: { sp: SP }) {
+/**
+ * O recálculo acabou de dar certo: é o pico de confiança no produto ("funcionou mesmo").
+ * Para quem ainda está no teste, esse é o melhor momento para pedir a conversão — melhor que
+ * um aviso genérico de "seu teste acabou" mais tarde, sem contexto nenhum.
+ */
+function ImprevistoUpsell({ planId, minutes, access }: { planId: string; minutes: number; access: Access }) {
+  if (isBeta() || access.kind !== 'trial') return null;
+  const daysLeft = access.until ? Math.max(0, Math.ceil((access.until.getTime() - Date.now()) / 86_400_000)) : null;
+  return (
+    <div className="card mt-3 flex flex-wrap items-center justify-between gap-4 border-gold-300 bg-gold-100/40">
+      <div>
+        <p className="font-bold">Foi por isso que te mostramos o Imprevisto primeiro.</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Sem reorganizar, essas {formatMinutes(minutes)} teriam virado atraso acumulado.
+          {daysLeft !== null && daysLeft > 0 && ` Seu teste grátis vale por mais ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}.`}
+        </p>
+      </div>
+      <Link href={`/app/assinatura?plano=${planId}`} className="btn btn-gold shrink-0">Garantir meu acesso</Link>
+    </div>
+  );
+}
+
+function Notice({ sp, planId, access }: { sp: SP; planId: string; access: Access }) {
   const ajuste = first(sp.ajuste);
   const min = Number(first(sp.min) ?? 0);
   if (first(sp.pagamento) === 'ok')
     return <div className="rounded-2xl bg-emerald-50 px-5 py-4 text-sm text-ok">Pagamento recebido! Se o acesso ainda não liberou, aguarde alguns segundos e atualize a página.</div>;
   if (ajuste === 'ok')
-    return <div className="rounded-2xl bg-royal-50 px-5 py-4 text-sm text-royal-800"><strong>Pronto.</strong> Reorganizamos {formatMinutes(min)} de estudo nos próximos dias. Um passo de cada vez.</div>;
+    return (
+      <div>
+        <div className="rounded-2xl bg-royal-50 px-5 py-4 text-sm text-royal-800"><strong>Pronto.</strong> Reorganizamos {formatMinutes(min)} de estudo nos próximos dias. Um passo de cada vez.</div>
+        <ImprevistoUpsell planId={planId} minutes={min} access={access} />
+      </div>
+    );
   if (ajuste === 'nothing')
     return <div className="rounded-2xl bg-emerald-50 px-5 py-4 text-sm text-ok">Você não tem nada atrasado. Tudo em dia! 🎉</div>;
   if (ajuste === 'no_room')
@@ -47,6 +78,21 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
   const progress = calculateProgress(
     sessions.map((s) => ({ subjectId: s.subjectId, minutes: s.minutes, completed: s.status === 'completed' })),
   );
+  const pace = computePace({
+    startDate: plan.startDate,
+    examDate: plan.examDate,
+    today,
+    totalMinutes: progress.totalMinutes,
+    completedMinutes: progress.completedMinutes,
+  });
+  const dayMap = new Map<string, DayMinutes>();
+  for (const s of sessions) {
+    const d = dayMap.get(s.date) ?? { date: s.date, planned: 0, completed: 0 };
+    d.planned += s.minutes;
+    if (s.status === 'completed') d.completed += s.minutes;
+    dayMap.set(s.date, d);
+  }
+  const consistencyDays = [...dayMap.values()];
 
   const overdue = sessions.filter((s) => s.status !== 'completed' && s.date < today);
   const overdueMinutes = overdue.reduce((a, s) => a + s.minutes, 0);
@@ -69,7 +115,8 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
         color={subj?.color ?? '#2347C9'}
         minutes={s.minutes}
         completed={s.status === 'completed'}
-        rescheduled={s.origin === 'rescheduled'}
+        origin={s.origin}
+        reviewOffsetDays={s.reviewOffsetDays}
         disabled={!access.canUse}
       />
     );
@@ -85,7 +132,32 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
         </p>
       </div>
 
-      <Notice sp={sp} />
+      {plan.editalMeta && (
+        <details className="card">
+          <summary className="cursor-pointer font-bold">Sobre este edital</summary>
+          <div className="mt-3 space-y-3 text-sm">
+            <p className="text-ink-soft">{plan.editalMeta.resumo}</p>
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div><dt className="text-xs text-ink-soft">Banca</dt><dd className="font-medium">{plan.editalMeta.banca ?? '—'}</dd></div>
+              <div><dt className="text-xs text-ink-soft">Vagas</dt><dd className="font-medium">{plan.editalMeta.vagas ?? '—'}</dd></div>
+              <div><dt className="text-xs text-ink-soft">Salário</dt><dd className="font-medium">{plan.editalMeta.salario ?? '—'}</dd></div>
+              <div><dt className="text-xs text-ink-soft">Taxa</dt><dd className="font-medium">{plan.editalMeta.taxaInscricao ?? '—'}</dd></div>
+            </dl>
+            {subjects.some((s) => s.topics && s.topics.length > 0) && (
+              <div className="space-y-2 border-t border-line pt-3">
+                {subjects.filter((s) => s.topics && s.topics.length > 0).map((s) => (
+                  <div key={s.id}>
+                    <p className="text-xs font-semibold text-ink-soft">{s.name}</p>
+                    <p className="text-ink-soft">{s.topics!.join(' · ')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
+      )}
+
+      <Notice sp={sp} planId={plan.id} access={access} />
 
       {!access.canUse && (
         <div className="card flex flex-wrap items-center justify-between gap-4 border-gold-300 bg-gold-100/40">
@@ -116,6 +188,15 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Ritmo e constância */}
+      <section className="card space-y-4">
+        <PaceBadge pace={pace} />
+        <div>
+          <p className="mb-2 text-sm font-semibold text-ink-soft">Sua constância</p>
+          <ConsistencyMap today={today} days={consistencyDays} />
         </div>
       </section>
 

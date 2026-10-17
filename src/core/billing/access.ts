@@ -64,3 +64,13 @@ export function licenseExpiry(
   const byMin = new Date(now.getTime() + minDays * DAY_MS);
   return byExam.getTime() > byMin.getTime() ? byExam : byMin;
 }
+
+/**
+ * A leitura de edital em PDF chama uma API paga por uso (ver docs/NOVIDADES.md). Para não deixar
+ * custo correndo solto durante o teste grátis, essa função fica reservada a quem já é assinante
+ * (ou ao modo beta, onde o dono do produto aceitou de propósito bancar o custo de todo mundo).
+ * Passe do Edital não entra aqui: ele só existe depois que o plano já foi criado.
+ */
+export function canUseEditalUpload(access: Pick<Access, 'kind'>): boolean {
+  return access.kind === 'subscriber' || access.kind === 'beta';
+}

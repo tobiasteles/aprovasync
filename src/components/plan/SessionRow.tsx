@@ -8,7 +8,8 @@ export function SessionRow({
   color,
   minutes,
   completed,
-  rescheduled,
+  origin,
+  reviewOffsetDays,
   disabled,
 }: {
   id: string;
@@ -17,7 +18,8 @@ export function SessionRow({
   color: string;
   minutes: number;
   completed: boolean;
-  rescheduled?: boolean;
+  origin?: 'generated' | 'rescheduled' | 'review';
+  reviewOffsetDays?: number | null;
   disabled?: boolean;
 }) {
   return (
@@ -40,7 +42,12 @@ export function SessionRow({
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
       <span className={`flex-1 text-sm font-medium ${completed ? 'text-ink-soft line-through' : ''}`}>
         {subjectName}
-        {rescheduled && <span className="badge ml-2 bg-gold-100 !px-2 !py-0.5 text-[10px] text-gold-700">reorganizada</span>}
+        {origin === 'rescheduled' && <span className="badge ml-2 bg-gold-100 !px-2 !py-0.5 text-[10px] text-gold-700">reorganizada</span>}
+        {origin === 'review' && (
+          <span className="badge ml-2 bg-royal-100 !px-2 !py-0.5 text-[10px] text-royal-700">
+            revisão {reviewOffsetDays === 1 ? '24h' : `${reviewOffsetDays}d`}
+          </span>
+        )}
       </span>
       <span className="text-sm tabular-nums text-ink-soft">{formatMinutes(minutes)}</span>
     </form>

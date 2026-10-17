@@ -233,3 +233,88 @@ describe('Imprevisto (persistência real)', () => {
     expect(after).toBe(snapshot); // nada mudou
   });
 });
+
+describe('Revisão espaçada (persistência real)', () => {
+  afterAll(() => vi.useRealTimers());
+
+  test('ao concluir uma sessão, agenda revisões de 24h/7d/30d sem duplicar', async () => {
+    const { createPlan } = await import('../services/plan.service');
+    const { scheduleReviewsForSession } = await import('../services/review.service');
+    const u = await newUser();
+
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-13T15:00:00Z') });
+    // 2 matérias com pesos bem diferentes: sobra folga em muitos dias para caber as revisões
+    // (um único assunto preenchendo 100% da grade, como no gerador, não deixaria espaço nenhum).
+    const planId = await createPlan(u.id, {
+      name: 'Revisão', startDate: '2026-10-13', examDate: '2027-06-01',
+      subjects: [{ name: 'Português', weight: 1 }, { name: 'Direito', weight: 1 }],
+      availabilityMinutes: [120, 120, 120, 120, 120, 120, 120],
+    });
+
+    const [first] = await db
+      .select()
+      .from(schema.studySessions)
+      .where(and(eq(schema.studySessions.planId, planId), eq(schema.studySessions.origin, 'generated')));
+
+    await scheduleReviewsForSession(first.id);
+    const afterFirst = await db.select().from(schema.studySessions).where(eq(schema.studySessions.planId, planId));
+    const reviews = afterFirst.filter((s) => s.origin === 'review');
+    expect(reviews.length).toBeGreaterThan(0); // em janela de 8 meses, ao menos alguma revisão cabe
+    expect(reviews.length).toBeLessThanOrEqual(3);
+    expect(new Set(reviews.map((r) => r.reviewOffsetDays)).size).toBe(reviews.length); // sem offset repetido
+    expect(reviews.every((r) => r.subjectId === first.subjectId)).toBe(true);
+
+    // Chamar de novo (ex.: desmarcou e remarcou) não duplica.
+    await scheduleReviewsForSession(first.id);
+    const afterSecond = await db.select().from(schema.studySessions).where(eq(schema.studySessions.planId, planId));
+    expect(afterSecond.filter((s) => s.origin === 'review')).toHaveLength(3);
+
+    // Concluir uma REVISÃO não gera revisão de revisão.
+    await scheduleReviewsForSession(reviews[0].id);
+    const afterThird = await db.select().from(schema.studySessions).where(eq(schema.studySessions.planId, planId));
+    expect(afterThird.filter((s) => s.origin === 'review')).toHaveLength(3);
+  });
+
+  test('revisões respeitam o limite diário junto com o resto do plano', async () => {
+    const { createPlan } = await import('../services/plan.service');
+    const { scheduleReviewsForSession } = await import('../services/review.service');
+    const { weekdayOf } = await import('@/core/schedule');
+    const u = await newUser();
+    const avail = [60, 60, 60, 60, 60, 60, 60];
+
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-13T15:00:00Z') });
+    const planId = await createPlan(u.id, {
+      name: 'Revisão apertada', startDate: '2026-10-13', examDate: '2027-02-01',
+      subjects: [{ name: 'A', weight: 1 }, { name: 'B', weight: 1 }],
+      availabilityMinutes: avail,
+    });
+
+    const generated = await db.select().from(schema.studySessions).where(and(eq(schema.studySessions.planId, planId), eq(schema.studySessions.origin, 'generated')));
+    for (const s of generated.slice(0, 6)) await scheduleReviewsForSession(s.id);
+
+    const all = await db.select().from(schema.studySessions).where(eq(schema.studySessions.planId, planId));
+    const perDay = new Map<string, number>();
+    for (const s of all) perDay.set(s.date, (perDay.get(s.date) ?? 0) + s.minutes);
+    for (const [date, minutes] of perDay) expect(minutes, date).toBeLessThanOrEqual(avail[weekdayOf(date)]);
+  });
+});
+
+describe('Trava do leitor de PDF (só assinante, protegida também na rota)', () => {
+  test('canUseEditalUpload reflete o acesso calculado pelo banco', async () => {
+    const { getUserAccess } = await import('../services/access.service');
+    const u = await newUser();
+    const { canUseEditalUpload } = await import('@/core/billing');
+
+    // Recém-criado: está em teste grátis, não pode usar.
+    expect(canUseEditalUpload(await getUserAccess(u))).toBe(false);
+
+    // Vira assinante ativo: passa a poder usar.
+    await db.insert(schema.subscriptions).values({
+      userId: u.id,
+      providerSubscriptionId: `sub_${u.id}`,
+      status: 'active',
+      currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000),
+    });
+    expect(canUseEditalUpload(await getUserAccess(u))).toBe(true);
+  });
+});

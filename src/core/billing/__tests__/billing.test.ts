@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
-import { computeAccess, licenseExpiry, type AccessInput } from '../access';
+import { canUseEditalUpload, computeAccess, licenseExpiry, type Access, type AccessInput } from '../access';
 import { formatBRL, PRICING } from '../pricing';
 import { mapStripeSubscriptionStatus, toBrazilOffsetISO, verifyMercadoPagoSignature } from '../webhooks';
 
@@ -11,8 +11,8 @@ const daysAhead = (n: number) => new Date(NOW.getTime() + n * 86_400_000);
 describe('computeAccess', () => {
   test.each<[string, Omit<AccessInput, 'now'>, string, boolean]>([
     ['usuário novo → teste grátis', { userCreatedAt: daysAgo(1) }, 'trial', true],
-    ['teste vence exatamente em 7 dias', { userCreatedAt: daysAgo(7) }, 'none', false],
-    ['teste no último instante', { userCreatedAt: new Date(NOW.getTime() - 7 * 86_400_000 + 1) }, 'trial', true],
+    [`teste vence exatamente em ${PRICING.trialDays} dias`, { userCreatedAt: daysAgo(PRICING.trialDays) }, 'none', false],
+    ['teste no último instante', { userCreatedAt: new Date(NOW.getTime() - PRICING.trialDays * 86_400_000 + 1) }, 'trial', true],
     ['teste expirado sem pagamento', { userCreatedAt: daysAgo(30) }, 'none', false],
     ['assinatura ativa', { userCreatedAt: daysAgo(90), subscription: { status: 'active', currentPeriodEnd: daysAhead(10) } }, 'subscriber', true],
     ['assinatura em trial do Stripe', { userCreatedAt: daysAgo(90), subscription: { status: 'trialing', currentPeriodEnd: daysAhead(3) } }, 'subscriber', true],
@@ -105,5 +105,17 @@ describe('helpers', () => {
     [5990, /59,90/],
   ])('formatBRL(%i)', (cents, re) => {
     expect(formatBRL(cents)).toMatch(re);
+  });
+});
+
+describe('canUseEditalUpload', () => {
+  test.each<[Access['kind'], boolean]>([
+    ['subscriber', true],
+    ['beta', true],
+    ['trial', false],
+    ['pass', false],
+    ['none', false],
+  ])('%s → %s', (kind, expected) => {
+    expect(canUseEditalUpload({ kind })).toBe(expected);
   });
 });

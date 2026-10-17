@@ -1,9 +1,11 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -28,7 +30,7 @@ import {
 export const planStatusEnum = pgEnum('plan_status', ['active', 'paused', 'finished', 'archived']);
 /** pending: a fazer · completed: concluída · skipped: atrasada e já re-alocada pelo "Imprevisto". */
 export const sessionStatusEnum = pgEnum('session_status', ['pending', 'completed', 'skipped']);
-export const sessionOriginEnum = pgEnum('session_origin', ['generated', 'rescheduled']);
+export const sessionOriginEnum = pgEnum('session_origin', ['generated', 'rescheduled', 'review']);
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['trialing', 'active', 'past_due', 'canceled']);
 
 /* ------------------------------- users ------------------------------- */
@@ -76,6 +78,8 @@ export const studyPlans = pgTable(
     utilizationPct: smallint('utilization_pct').notNull().default(85),
     timezone: text('timezone').notNull().default('America/Sao_Paulo'),
     status: planStatusEnum('status').notNull().default('active'),
+    /** Preenchido quando o plano nasceu de um PDF de edital enviado pelo usuário (ver core/edital). */
+    editalMeta: jsonb('edital_meta').$type<import('../../core/edital').EditalMeta | null>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -111,6 +115,8 @@ export const subjects = pgTable(
     weight: smallint('weight').notNull().default(1),
     color: text('color'),
     position: smallint('position').notNull().default(0),
+    /** Tópicos-chave extraídos do edital para esta matéria (opcional). */
+    topics: text('topics').array(),
   },
   (t) => [
     uniqueIndex('subjects_plan_name_uq').on(t.planId, t.name),
@@ -134,7 +140,11 @@ export const studySessions = pgTable(
     rescheduledFromId: uuid('rescheduled_from_id').references((): AnyPgColumn => studySessions.id, {
       onDelete: 'set null',
     }),
+    /** Para origin='review': em quantos dias após o estudo original esta revisão cai (1, 7 ou 30). */
+    reviewOffsetDays: smallint('review_offset_days'),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    /** Evita gerar revisões de novo se a pessoa desmarcar e remarcar a mesma sessão como concluída. */
+    reviewsGenerated: boolean('reviews_generated').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

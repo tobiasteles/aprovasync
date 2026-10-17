@@ -1,7 +1,7 @@
 CREATE TYPE "public"."payment_provider" AS ENUM('stripe', 'mercadopago');--> statement-breakpoint
 CREATE TYPE "public"."payment_status" AS ENUM('pending', 'approved', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."plan_status" AS ENUM('active', 'paused', 'finished', 'archived');--> statement-breakpoint
-CREATE TYPE "public"."session_origin" AS ENUM('generated', 'rescheduled');--> statement-breakpoint
+CREATE TYPE "public"."session_origin" AS ENUM('generated', 'rescheduled', 'review');--> statement-breakpoint
 CREATE TYPE "public"."session_status" AS ENUM('pending', 'completed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."subscription_status" AS ENUM('trialing', 'active', 'past_due', 'canceled');--> statement-breakpoint
 CREATE TABLE "password_reset_tokens" (
@@ -66,6 +66,7 @@ CREATE TABLE "study_plans" (
 	"utilization_pct" smallint DEFAULT 85 NOT NULL,
 	"timezone" text DEFAULT 'America/Sao_Paulo' NOT NULL,
 	"status" "plan_status" DEFAULT 'active' NOT NULL,
+	"edital_meta" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "study_plans_exam_after_start" CHECK ("study_plans"."exam_date" > "study_plans"."start_date"),
@@ -82,7 +83,9 @@ CREATE TABLE "study_sessions" (
 	"status" "session_status" DEFAULT 'pending' NOT NULL,
 	"origin" "session_origin" DEFAULT 'generated' NOT NULL,
 	"rescheduled_from_id" uuid,
+	"review_offset_days" smallint,
 	"completed_at" timestamp with time zone,
+	"reviews_generated" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "study_sessions_minutes_pos" CHECK ("study_sessions"."minutes" > 0)
 );
@@ -94,6 +97,7 @@ CREATE TABLE "subjects" (
 	"weight" smallint DEFAULT 1 NOT NULL,
 	"color" text,
 	"position" smallint DEFAULT 0 NOT NULL,
+	"topics" text[],
 	CONSTRAINT "subjects_weight_pos" CHECK ("subjects"."weight" > 0)
 );
 --> statement-breakpoint

@@ -19,6 +19,8 @@ export const RULES = {
   forgotIp: { name: 'forgot-ip', limit: 10, windowSec: 60 * 60 },
   resetIp: { name: 'reset-ip', limit: 10, windowSec: 60 * 60 },
   checkoutUser: { name: 'checkout-user', limit: 10, windowSec: 60 * 60 },
+  editalUser: { name: 'edital-user', limit: 8, windowSec: 60 * 60 },
+  editalIp: { name: 'edital-ip', limit: 15, windowSec: 60 * 60 },
 } as const satisfies Record<string, Rule>;
 
 const memory = new MemoryRateLimiter();

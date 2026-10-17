@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { addDays, daysBetween, toUTC, weekdayOf } from '../dates';
+import { addDays, daysBetween, listDays, toUTC, weekdayOf } from '../dates';
 import { apportion, generateSchedule, type GenerateInput } from '../generate';
+import { computePace, type PaceStatus } from '../pace';
+import { scheduleReviews } from '../reviews';
 import { calculateProgress } from '../progress';
 import { recalculateSchedule } from '../recalculate';
 import { ScheduleError, type PlannedSession, type WeeklyAvailability } from '../shared';
@@ -458,5 +460,153 @@ describe('calculateProgress', () => {
     const p = calculateProgress([s(60, true, 'port'), s(60, false, 'port'), s(30, true, 'mat')]);
     expect(p.bySubject.port).toEqual({ totalMinutes: 120, completedMinutes: 60, percent: 50 });
     expect(p.bySubject.mat.percent).toBe(100);
+  });
+});
+
+/* -------------------------------- ritmo -------------------------------- */
+
+describe('computePace', () => {
+  const base = { startDate: '2026-01-01', examDate: '2026-01-31', totalMinutes: 1000 };
+
+  test.each<[string, Partial<typeof base> & { today: string; completedMinutes: number }, PaceStatus]>([
+    ['metade do prazo, metade feito → no ritmo', { today: '2026-01-16', completedMinutes: 500 }, 'on_track'],
+    ['metade do prazo, tudo feito → adiantado', { today: '2026-01-16', completedMinutes: 1000 }, 'done'],
+    ['metade do prazo, nada feito → atrasado', { today: '2026-01-16', completedMinutes: 0 }, 'behind'],
+    ['metade do prazo, 60% feito → adiantado', { today: '2026-01-16', completedMinutes: 600 }, 'ahead'],
+    ['hoje é o início → ainda não começou a contar', { today: '2026-01-01', completedMinutes: 0 }, 'not_started'],
+    ['prova já virou a data → prazo esgotado', { today: '2026-02-05', completedMinutes: 500 }, 'finished'],
+    ['100% concluído antes da prova → concluído', { today: '2026-01-10', completedMinutes: 1000 }, 'done'],
+  ])('%s', (_label, over, expected) => {
+    const pace = computePace({ ...base, ...over });
+    expect(pace.status).toBe(expected);
+  });
+
+  test('plano sem minutos planejados não quebra', () => {
+    expect(computePace({ ...base, totalMinutes: 0, today: '2026-01-16', completedMinutes: 0 }).status).toBe('not_started');
+  });
+
+  test('é determinístico e nunca aponta 2 pessoas uma contra a outra (só compara com o próprio ritmo)', () => {
+    const a = computePace({ ...base, today: '2026-01-16', completedMinutes: 700 });
+    const b = computePace({ ...base, today: '2026-01-16', completedMinutes: 700 });
+    expect(a).toEqual(b);
+    expect(a.daysDelta).toBeGreaterThan(0);
+  });
+
+  test('dias de folga aproximados: 20% adiantado num plano de 30 dias ≈ 6 dias', () => {
+    const pace = computePace({ ...base, today: '2026-01-16', completedMinutes: 700 }); // 70% feito, 50% esperado
+    expect(pace.daysDelta).toBe(6);
+  });
+});
+
+/* --------------------------- revisão espaçada --------------------------- */
+
+describe('scheduleReviews (método 24h / 7d / 30d)', () => {
+  const AV_ALL_120: WeeklyAvailability = [120, 120, 120, 120, 120, 120, 120];
+
+  test('agenda as 3 revisões nas datas ideais quando há espaço livre', () => {
+    const out = scheduleReviews({
+      seed: { subjectId: 'port', studiedOn: '2026-02-01', originalMinutes: 60 },
+      examDate: '2026-06-01',
+      weeklyAvailability: AV_ALL_120,
+      loadByDate: new Map(),
+    });
+    expect(out.map((r) => [r.offsetDays, r.date])).toEqual([
+      [1, '2026-02-02'],
+      [7, '2026-02-08'],
+      [30, '2026-03-03'],
+    ]);
+    expect(out.every((r) => r.minutes === 30)).toBe(true); // 40% de 60min, arredondado ao bloco de 30
+  });
+
+  test('revisão cujo dia ideal cai na virada de fevereiro bissexto', () => {
+    const out = scheduleReviews({
+      seed: { subjectId: 'a', studiedOn: '2024-02-27', originalMinutes: 60 },
+      examDate: '2024-06-01',
+      weeklyAvailability: AV_ALL_120,
+      loadByDate: new Map(),
+    });
+    expect(out.find((r) => r.offsetDays === 1)?.date).toBe('2024-02-28');
+    expect(out.find((r) => r.offsetDays === 7)?.date).toBe('2024-03-05'); // atravessa o 29/02
+  });
+
+  test.each([
+    ['revisão de 30 dias não cabe mais → é omitida, não empurrada para depois da prova', '2026-02-01', '2026-02-20', [1, 7]],
+    ['todas as revisões caem depois da prova → nenhuma é agendada', '2026-02-01', '2026-02-02', []],
+  ])('%s', (_label, studiedOn, examDate, expectedOffsets) => {
+    const out = scheduleReviews({
+      seed: { subjectId: 'a', studiedOn, originalMinutes: 60 },
+      examDate,
+      weeklyAvailability: AV_ALL_120,
+      loadByDate: new Map(),
+    });
+    expect(out.map((r) => r.offsetDays)).toEqual(expectedOffsets);
+  });
+
+  test('nunca estoura o limite diário: empurra para o primeiro dia com folga', () => {
+    const loadByDate = new Map([['2026-02-02', 120]]); // dia da 1ª revisão já lotado
+    const out = scheduleReviews({
+      seed: { subjectId: 'a', studiedOn: '2026-02-01', originalMinutes: 60 },
+      examDate: '2026-06-01',
+      weeklyAvailability: AV_ALL_120,
+      loadByDate,
+    });
+    expect(out.find((r) => r.offsetDays === 1)?.date).toBe('2026-02-03');
+  });
+
+  test('sem espaço algum até a prova: a revisão é omitida (nunca estoura)', () => {
+    const loadByDate = new Map(['2026-02-02', '2026-02-03', '2026-02-04'].map((d) => [d, 120]));
+    const out = scheduleReviews({
+      seed: { subjectId: 'a', studiedOn: '2026-02-01', originalMinutes: 60 },
+      examDate: '2026-02-05',
+      weeklyAvailability: AV_ALL_120,
+      loadByDate,
+    });
+    expect(out.find((r) => r.offsetDays === 1)).toBeUndefined();
+  });
+
+  test('duração mínima de uma revisão é sempre 1 bloco, mesmo para sessões curtas', () => {
+    const out = scheduleReviews({
+      seed: { subjectId: 'a', studiedOn: '2026-02-01', originalMinutes: 30 },
+      examDate: '2026-06-01',
+      weeklyAvailability: AV_ALL_120,
+      loadByDate: new Map(),
+      granularityMinutes: 30,
+    });
+    expect(out.every((r) => r.minutes >= 30)).toBe(true);
+  });
+
+  test('é determinístico', () => {
+    const args = {
+      seed: { subjectId: 'a', studiedOn: '2026-02-01', originalMinutes: 60 },
+      examDate: '2026-06-01',
+      weeklyAvailability: AV_ALL_120,
+      loadByDate: new Map(),
+    };
+    expect(scheduleReviews(args)).toEqual(scheduleReviews(args));
+  });
+
+  test('regressão: duas revisões da MESMA sessão nunca estouram o limite do dia juntas', () => {
+    // Só um único dia em toda a janela tem espaço (40 min livres de uma capacidade de 50);
+    // offset=1 e offset=7 caem no mesmo dia-alvo se a carga não for atualizada entre as duas.
+    const weekly: WeeklyAvailability = [50, 50, 50, 50, 50, 50, 50];
+    const onlyFreeDay = '2026-02-08'; // = studiedOn + 7 (mesmo "dia ideal" das duas revisões coincide após a busca)
+    const loadByDate = new Map<string, number>();
+    for (const d of listDays('2026-02-02', '2026-05-31')) loadByDate.set(d, d === onlyFreeDay ? 10 : 50);
+
+    const out = scheduleReviews({
+      seed: { subjectId: 'a', studiedOn: '2026-02-01', originalMinutes: 100 }, // revisão = 40min
+      examDate: '2026-06-01',
+      weeklyAvailability: weekly,
+      loadByDate,
+    });
+
+    const perDay = new Map<string, number>();
+    for (const r of out) perDay.set(r.date, (perDay.get(r.date) ?? 0) + r.minutes);
+    for (const [date, minutes] of perDay) {
+      const used = loadByDate.get(date) ?? 0;
+      expect(used + minutes, date).toBeLessThanOrEqual(weekly[weekdayOf(date)]);
+    }
+    // No máximo uma das duas revisões coube no único dia livre; a outra foi omitida.
+    expect(out.filter((r) => r.date === onlyFreeDay)).toHaveLength(1);
   });
 });
