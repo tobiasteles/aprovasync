@@ -129,6 +129,7 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight">{plan.name}</h1>
         <p className="text-ink-soft">
           Prova em {formatDateLong(plan.examDate)} · {daysLeft > 0 ? `faltam ${daysLeft} dias` : daysLeft === 0 ? 'é hoje!' : 'já aconteceu'}
+          {plan.maxSubjectsPerDay && ` · até ${plan.maxSubjectsPerDay} ${plan.maxSubjectsPerDay === 1 ? 'matéria' : 'matérias'} por dia`}
         </p>
       </div>
 

@@ -1,5 +1,5 @@
 {
-  "id": "bbc429da-f1a8-4fed-8e0b-bdbb753a354b",
+  "id": "6e7677c3-623a-47a2-b15f-c2a07147885b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -585,6 +585,12 @@
         "edital_meta": {
           "name": "edital_meta",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "max_subjects_per_day": {
+          "name": "max_subjects_per_day",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": false
         },

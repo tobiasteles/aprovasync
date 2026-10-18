@@ -610,3 +610,110 @@ describe('scheduleReviews (método 24h / 7d / 30d)', () => {
     expect(out.filter((r) => r.date === onlyFreeDay)).toHaveLength(1);
   });
 });
+
+/* ---------------------- generateSchedule – limite de matérias por dia ---------------------- */
+
+describe('generateSchedule – limite de matérias por dia (maxSubjectsPerDay)', () => {
+  function subjectsPerDay(plan: ReturnType<typeof generateSchedule>): Map<string, Set<string>> {
+    const map = new Map<string, Set<string>>();
+    for (const s of plan) {
+      if (!map.has(s.date)) map.set(s.date, new Set());
+      map.get(s.date)!.add(s.subjectId);
+    }
+    return map;
+  }
+
+  const manySubjects = Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, weight: 1 + (i % 3) }));
+  // Folga REALISTA (a mesma que o produto usa de verdade — createPlan nunca passa utilization:1).
+  // Com folga de verdade, o limite de matérias por dia nunca precisa ser violado.
+  const realistic = { startDate: '2026-01-01', examDate: '2026-04-01', weeklyAvailability: ALL_120, subjects: manySubjects };
+
+  test('sem o limite (padrão), um dia pode ter mais matérias que o limite que seria usado', () => {
+    const plan = generateSchedule(realistic);
+    const perDay = subjectsPerDay(plan);
+    const maxFound = Math.max(...[...perDay.values()].map((s) => s.size));
+    expect(maxFound).toBeGreaterThan(3); // confirma que, sem limite, o dia realmente mistura muitas matérias
+  });
+
+  test.each([1, 2, 3, 4])('com folga realista e limite de %i, nenhum dia tem mais que isso de matérias diferentes', (limit) => {
+    const plan = generateSchedule({ ...realistic, maxSubjectsPerDay: limit });
+    const perDay = subjectsPerDay(plan);
+    for (const [date, set] of perDay) expect(set.size, date).toBeLessThanOrEqual(limit);
+  });
+
+  test('limite maior ou igual ao nº de matérias se comporta como sem limite', () => {
+    const shortWindow = { ...realistic, examDate: '2026-02-15' };
+    const unlimited = generateSchedule(shortWindow);
+    const withBigLimit = generateSchedule({ ...shortWindow, maxSubjectsPerDay: manySubjects.length });
+    expect(withBigLimit).toEqual(unlimited);
+  });
+
+  test('a soma de minutos por matéria no total do plano não muda com o limite (só muda QUANDO)', () => {
+    const unlimited = generateSchedule(realistic);
+    const limited = generateSchedule({ ...realistic, maxSubjectsPerDay: 2 });
+    const totals = (plan: typeof unlimited) => {
+      const m = new Map<string, number>();
+      for (const s of plan) m.set(s.subjectId, (m.get(s.subjectId) ?? 0) + s.minutes);
+      return m;
+    };
+    expect(totals(limited)).toEqual(totals(unlimited));
+  });
+
+  test('continua sem estourar o limite diário de horas', () => {
+    const plan = generateSchedule({ ...realistic, weeklyAvailability: ALL_60, maxSubjectsPerDay: 2 });
+    expectWithinDailyLimit(plan, ALL_60);
+  });
+
+  test('limite de 1 matéria por dia: cada dia estuda só uma matéria (blocos fechados)', () => {
+    const plan = generateSchedule({
+      startDate: '2026-01-01', examDate: '2026-02-01', weeklyAvailability: ALL_120,
+      subjects: [{ id: 'a', weight: 1 }, { id: 'b', weight: 1 }, { id: 'c', weight: 1 }],
+      maxSubjectsPerDay: 1,
+    });
+    const perDay = subjectsPerDay(plan);
+    expect([...perDay.values()].every((s) => s.size === 1)).toBe(true);
+  });
+
+  test.each([
+    ['zero', 0],
+    ['negativo', -1],
+    ['decimal', 2.5],
+  ])('rejeita maxSubjectsPerDay inválido: %s', (_label, value) => {
+    expect(
+      errorCode(() => generateSchedule({ ...baseInput, maxSubjectsPerDay: value })),
+    ).toBe('INVALID_MAX_SUBJECTS_PER_DAY');
+  });
+
+  test('é determinístico', () => {
+    const args = { ...realistic, maxSubjectsPerDay: 3 };
+    expect(generateSchedule(args)).toEqual(generateSchedule(args));
+  });
+
+  describe('caso extremo: utilization 1 (zero folga) com limite apertado', () => {
+    // Sem NENHUMA folga, pode sobrar um resto de minutos sem outro dia livre para caber dentro
+    // do limite. A escolha deliberada é: nunca perder minutos de estudo (invariante inegociável),
+    // mesmo que isso signifique, raramente, um dia específico passar do limite combinado.
+    const tight = { ...realistic, utilization: 1 as const };
+
+    test('nunca perde minutos de estudo, mesmo sem folga nenhuma', () => {
+      const unlimited = generateSchedule(tight);
+      const limited = generateSchedule({ ...tight, maxSubjectsPerDay: 2 });
+      const total = (plan: typeof unlimited) => plan.reduce((a, s) => a + s.minutes, 0);
+      expect(total(limited)).toBe(total(unlimited)); // nenhum minuto perdido
+    });
+
+    test('mesmo nesse caso extremo, nunca estoura o limite diário de HORAS (só, no pior caso, o de matérias)', () => {
+      const plan = generateSchedule({ ...tight, maxSubjectsPerDay: 2 });
+      expectWithinDailyLimit(plan, ALL_120);
+    });
+
+    test('a folga padrão do produto (não 1) evita esse caso na prática', () => {
+      // createPlan (server/services/plan.service.ts) nunca passa utilization — usa sempre o
+      // padrão (0.85), então este teste documenta que, nas condições reais de uso, o limite de
+      // matérias por dia é sempre respeitado à risca.
+      const plan = generateSchedule({ ...realistic, maxSubjectsPerDay: 2 }); // sem utilization: 1
+      const perDay = subjectsPerDay(plan);
+      expect([...perDay.values()].every((s) => s.size <= 2)).toBe(true);
+    });
+  });
+});

@@ -8,6 +8,7 @@ const MESSAGES: Record<ScheduleErrorCode, string> = {
   INVALID_GRANULARITY: 'Tamanho de bloco inválido.',
   INVALID_UTILIZATION: 'Configuração de folga inválida.',
   NO_AVAILABLE_TIME: 'Com essas horas, não sobra tempo de estudo até a prova. Aumente as horas por dia ou confira a data.',
+  INVALID_MAX_SUBJECTS_PER_DAY: 'O número máximo de matérias por dia deve ser 1 ou mais.',
 };
 
 export function friendlyScheduleError(error: unknown): string | null {

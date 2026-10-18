@@ -93,6 +93,16 @@ export function PlanForm({ minDate, initial, editalMeta }: { minDate: string; in
         >
           + Adicionar matéria
         </button>
+        <div className="border-t border-line pt-4">
+          <label className="label" htmlFor="maxSubjectsPerDay">Quantas matérias estudar por dia, no máximo?</label>
+          <select id="maxSubjectsPerDay" name="maxSubjectsPerDay" className="input w-full sm:w-64" defaultValue="3">
+            <option value="">Sem limite (intercala todas)</option>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>{n} {n === 1 ? 'matéria' : 'matérias'} por dia</option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-ink-soft">Com menos matérias por dia, você estuda em blocos mais focados em vez de um pouco de tudo todo dia.</p>
+        </div>
       </section>
 
       <section className="card space-y-4">

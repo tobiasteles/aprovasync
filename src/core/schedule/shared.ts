@@ -36,7 +36,8 @@ export type ScheduleErrorCode =
   | 'INVALID_AVAILABILITY'
   | 'INVALID_GRANULARITY'
   | 'INVALID_UTILIZATION'
-  | 'NO_AVAILABLE_TIME';
+  | 'NO_AVAILABLE_TIME'
+  | 'INVALID_MAX_SUBJECTS_PER_DAY';
 
 export class ScheduleError extends Error {
   constructor(
@@ -68,6 +69,12 @@ export function assertGranularity(g: number): void {
 export function assertUtilization(u: number): void {
   if (!(u > 0 && u <= 1)) {
     throw new ScheduleError('INVALID_UTILIZATION', 'A utilização deve estar no intervalo (0, 1].');
+  }
+}
+
+export function assertMaxSubjectsPerDay(n: number): void {
+  if (!Number.isInteger(n) || n < 1) {
+    throw new ScheduleError('INVALID_MAX_SUBJECTS_PER_DAY', 'O número máximo de matérias por dia deve ser um inteiro de 1 ou mais.');
   }
 }
 

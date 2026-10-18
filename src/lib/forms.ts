@@ -7,6 +7,15 @@ export interface SubjectDraft {
 const toNumber = (v: FormDataEntryValue | null) => Number(String(v ?? '0').replace(',', '.'));
 
 /** Lê av0..av6 (horas, dom..sáb) e devolve minutos. null se algum valor for inválido. */
+/** Quantas matérias diferentes por dia, no máximo. 0 ou vazio = sem limite. */
+export function parseMaxSubjectsPerDay(form: FormData): number | undefined {
+  const raw = String(form.get('maxSubjectsPerDay') ?? '').trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) return undefined;
+  return n;
+}
+
 export function parseAvailability(form: FormData): number[] | null {
   const out: number[] = [];
   for (let i = 0; i < 7; i++) {

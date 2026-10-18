@@ -80,6 +80,8 @@ export const studyPlans = pgTable(
     status: planStatusEnum('status').notNull().default('active'),
     /** Preenchido quando o plano nasceu de um PDF de edital enviado pelo usuário (ver core/edital). */
     editalMeta: jsonb('edital_meta').$type<import('../../core/edital').EditalMeta | null>(),
+    /** Quantas matérias diferentes por dia, no máximo. null = sem limite (comportamento antigo). */
+    maxSubjectsPerDay: smallint('max_subjects_per_day'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

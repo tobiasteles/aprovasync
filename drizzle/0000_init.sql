@@ -67,6 +67,7 @@ CREATE TABLE "study_plans" (
 	"timezone" text DEFAULT 'America/Sao_Paulo' NOT NULL,
 	"status" "plan_status" DEFAULT 'active' NOT NULL,
 	"edital_meta" jsonb,
+	"max_subjects_per_day" smallint,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "study_plans_exam_after_start" CHECK ("study_plans"."exam_date" > "study_plans"."start_date"),

@@ -15,6 +15,8 @@ export interface PlanInput {
   availabilityMinutes: number[];
   /** Presente quando o plano nasceu da leitura de um PDF de edital. */
   editalMeta?: EditalMeta;
+  /** Quantas matérias diferentes por dia, no máximo. Sem isso, um dia pode intercalar todas. */
+  maxSubjectsPerDay?: number;
 }
 
 /** Gera o cronograma (pode lançar ScheduleError) e grava tudo em uma transação. */
@@ -24,12 +26,20 @@ export async function createPlan(userId: string, input: PlanInput): Promise<stri
     examDate: input.examDate,
     weeklyAvailability: input.availabilityMinutes,
     subjects: input.subjects.map((s, i) => ({ id: String(i), weight: s.weight })),
+    maxSubjectsPerDay: input.maxSubjectsPerDay,
   });
 
   return getDb().transaction(async (tx) => {
     const [plan] = await tx
       .insert(studyPlans)
-      .values({ userId, name: input.name, startDate: input.startDate, examDate: input.examDate, editalMeta: input.editalMeta ?? null })
+      .values({
+        userId,
+        name: input.name,
+        startDate: input.startDate,
+        examDate: input.examDate,
+        editalMeta: input.editalMeta ?? null,
+        maxSubjectsPerDay: input.maxSubjectsPerDay ?? null,
+      })
       .returning({ id: studyPlans.id });
 
     await tx

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth';
 import { friendlyScheduleError } from '@/lib/errors';
-import { parseAvailability, parseEditalMeta, parseSubjects } from '@/lib/forms';
+import { parseAvailability, parseEditalMeta, parseMaxSubjectsPerDay, parseSubjects } from '@/lib/forms';
 import { todayInSaoPaulo } from '@/lib/today';
 import { getDb } from '../db/client';
 import { studyPlans, studySessions } from '../db/schema';
@@ -40,6 +40,7 @@ export async function createPlanAction(_prev: FormState, formData: FormData): Pr
       subjects,
       availabilityMinutes,
       editalMeta: parseEditalMeta(formData),
+      maxSubjectsPerDay: parseMaxSubjectsPerDay(formData),
     });
   } catch (e) {
     const friendly = friendlyScheduleError(e);

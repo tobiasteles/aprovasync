@@ -40,3 +40,10 @@ Em "Novo plano", dá para enviar o PDF do edital: o texto é extraído e um mode
 
 ## Um bug real encontrado e corrigido nesta rodada
 Ao testar o motor de revisão espaçada contra Postgres de verdade, apareceu um caso em que duas revisões da mesma sessão (ex.: a de 1 dia e a de 7 dias) podiam cair no mesmo dia e, juntas, ultrapassar o limite diário — porque o cálculo não "lembrava" que já tinha ocupado aquele horário ao posicionar a revisão seguinte. Foi corrigido em `src/core/schedule/reviews.ts` e agora há um teste específico para esse caso (`__tests__/schedule.test.ts`, "regressão: duas revisões da MESMA sessão nunca estouram o limite do dia juntas").
+
+
+## 8. Limite de matérias por dia (feedback de um testador real)
+Um concurseiro testando o produto notou que, com muitas matérias, o cronograma intercalava todas elas no mesmo dia — virando uma "colcha de retalhos" em vez de blocos de estudo focados. Agora dá para definir, na criação do plano, quantas matérias diferentes podem aparecer no mesmo dia (padrão: 3).
+
+- Motor: `src/core/schedule/generate.ts` (`maxSubjectsPerDay`), com 3 passadas: a principal respeita o limite; uma de "resgate" usa a folga do dia para não perder minutos quando as matérias escolhidas terminam cedo; e uma de último recurso, só no caso extremo de folga zero, prefere um dia pontualmente passar do limite a perder minutos de estudo em silêncio — documentado e testado explicitamente.
+- Um bug real apareceu e foi corrigido durante os testes: a primeira versão "esquecia" matérias já esgotadas no dia, desperdiçando parte da capacidade do dia. Corrigido e coberto por teste de regressão.
