@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { EditalMeta } from "@/core/edital";
-import { createPlanAction } from "@/server/actions/plan.actions";
+import {
+  createPlanAction,
+  updatePlanAction,
+} from "@/server/actions/plan.actions";
 import type { FormState } from "@/server/actions/auth.actions";
 import { SubmitButton } from "../ui/SubmitButton";
 import { AvailabilityFields } from "./AvailabilityFields";
@@ -17,36 +21,76 @@ const PLACEHOLDERS = [
 export interface PlanFormInitial {
   name?: string;
   examDate?: string;
-  subjects?: { name: string; weight: number; topics?: string[] }[];
+  /** `id` só existe ao editar (matéria já salva no banco). */
+  subjects?: { id?: string; name: string; weight: number; topics?: string[] }[];
+  maxSubjectsPerDay?: number | null;
+  /** Horas (não minutos), índice 0 = domingo ... 6 = sábado. */
+  availabilityHours?: number[];
+}
+
+interface Row {
+  key: number;
+  id: string;
+  name: string;
+  weight: number;
+  topics: string[];
 }
 
 export function PlanForm({
   minDate,
   initial,
   editalMeta,
+  planId,
 }: {
   minDate: string;
   initial?: PlanFormInitial;
   editalMeta?: EditalMeta;
+  /** Se informado, o formulário vira "editar plano". */
+  planId?: string;
 }) {
+  const editing = Boolean(planId);
   const [state, action] = useActionState<FormState, FormData>(
-    createPlanAction,
+    editing ? updatePlanAction : createPlanAction,
     undefined,
   );
-  const seedRows = initial?.subjects?.length
-    ? initial.subjects.map((_, i) => i)
-    : [0, 1, 2];
-  const [rows, setRows] = useState<number[]>(seedRows);
-  const [nextId, setNextId] = useState(seedRows.length);
+
+  const [rows, setRows] = useState<Row[]>(() => {
+    const seed = initial?.subjects?.length
+      ? initial.subjects
+      : [
+          { name: "", weight: 3 },
+          { name: "", weight: 3 },
+          { name: "", weight: 3 },
+        ];
+    return seed.map((s, i) => ({
+      key: i,
+      id: ("id" in s && s.id) || "",
+      name: s.name,
+      weight: s.weight,
+      topics: ("topics" in s && s.topics) || [],
+    }));
+  });
+  const [nextKey, setNextKey] = useState(() => rows.length);
+
+  const maxDefault = editing ? String(initial?.maxSubjectsPerDay ?? "") : "3";
 
   return (
-    <form action={action} className="space-y-8">
+    <form action={action} className="space-y-6 sm:space-y-8">
+      {planId && <input type="hidden" name="planId" value={planId} />}
       {editalMeta && (
         <input
           type="hidden"
           name="editalMeta"
           value={JSON.stringify(editalMeta)}
         />
+      )}
+
+      {editing && (
+        <div className="rounded-2xl bg-royal-50 px-5 py-4 text-sm text-royal-800">
+          <strong>Como funciona:</strong> o que você já concluiu fica guardado.
+          Ao salvar, refazemos o cronograma dos dias que faltam com as novas
+          informações.
+        </div>
       )}
 
       <section className="card space-y-4">
@@ -86,56 +130,62 @@ export function PlanForm({
         <div>
           <h2 className="text-lg font-bold">2. Matérias e pesos</h2>
           <p className="mt-1 text-sm text-ink-soft">
-            {initial?.subjects?.length
-              ? "Já preenchemos a partir do edital. Confira e ajuste se precisar."
-              : "Peso maior = mais tempo no cronograma. Use 1 a 10 (ex.: 9 para uma matéria que cai muito e 2 para uma matéria que cai menos)."}
+            {editing
+              ? "Altere nomes e pesos, adicione ou remova matérias. Remover uma matéria também apaga as sessões dela."
+              : initial?.subjects?.length
+                ? "Já preenchemos a partir do edital. Confira e ajuste se precisar."
+                : "Peso maior = mais tempo no cronograma. Use 1 a 10 (ex.: 9 para uma matéria que cai muito e 2 para uma matéria que cai menos)."}
           </p>
         </div>
         <div className="space-y-3">
-          {rows.map((id, i) => {
-            const subj = initial?.subjects?.[i];
-            return (
-              <div key={id} className="flex items-center gap-3">
-                <input
-                  type="hidden"
-                  name="subjectTopics"
-                  value={JSON.stringify(subj?.topics ?? [])}
-                />
-                <input
-                  name="subjectName"
-                  className="input flex-1"
-                  placeholder={PLACEHOLDERS[i % PLACEHOLDERS.length]}
-                  defaultValue={subj?.name}
-                  aria-label={`Nome da matéria ${i + 1}`}
-                />
-                <input
-                  name="subjectWeight"
-                  type="number"
-                  min={1}
-                  max={10}
-                  defaultValue={subj?.weight ?? 3}
-                  className="input w-20 text-center"
-                  aria-label={`Peso da matéria ${i + 1}`}
-                />
-                <button
-                  type="button"
-                  className="rounded-lg px-2 py-2 text-ink-soft hover:bg-paper-2 disabled:opacity-30"
-                  onClick={() => setRows((r) => r.filter((x) => x !== id))}
-                  disabled={rows.length <= 1}
-                  aria-label={`Remover matéria ${i + 1}`}
-                >
-                  ✕
-                </button>
-              </div>
-            );
-          })}
+          {rows.map((row, i) => (
+            <div key={row.key} className="flex items-center gap-2 sm:gap-3">
+              <input type="hidden" name="subjectId" value={row.id} />
+              <input
+                type="hidden"
+                name="subjectTopics"
+                value={JSON.stringify(row.topics)}
+              />
+              <input
+                name="subjectName"
+                className="input min-w-0 flex-1"
+                placeholder={PLACEHOLDERS[i % PLACEHOLDERS.length]}
+                defaultValue={row.name}
+                aria-label={`Nome da matéria ${i + 1}`}
+              />
+              <input
+                name="subjectWeight"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={10}
+                defaultValue={row.weight}
+                className="input w-16 shrink-0 px-2 text-center sm:w-20"
+                aria-label={`Peso da matéria ${i + 1}`}
+              />
+              <button
+                type="button"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-soft hover:bg-paper-2 disabled:opacity-30"
+                onClick={() =>
+                  setRows((r) => r.filter((x) => x.key !== row.key))
+                }
+                disabled={rows.length <= 1}
+                aria-label={`Remover matéria ${i + 1}`}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
         <button
           type="button"
-          className="btn btn-ghost"
+          className="btn btn-ghost w-full sm:w-auto"
           onClick={() => {
-            setRows((r) => [...r, nextId]);
-            setNextId((n) => n + 1);
+            setRows((r) => [
+              ...r,
+              { key: nextKey, id: "", name: "", weight: 3, topics: [] },
+            ]);
+            setNextKey((n) => n + 1);
           }}
         >
           + Adicionar matéria
@@ -148,7 +198,7 @@ export function PlanForm({
             id="maxSubjectsPerDay"
             name="maxSubjectsPerDay"
             className="input w-full sm:w-64"
-            defaultValue="3"
+            defaultValue={maxDefault}
           >
             <option value="">Sem limite (intercala todas)</option>
             {[1, 2, 3, 4, 5].map((n) => (
@@ -172,7 +222,7 @@ export function PlanForm({
             para os imprevistos da vida.
           </p>
         </div>
-        <AvailabilityFields />
+        <AvailabilityFields defaultHours={initial?.availabilityHours} />
       </section>
 
       {state?.error && (
@@ -183,12 +233,25 @@ export function PlanForm({
           {state.error}
         </p>
       )}
-      <SubmitButton
-        className="btn btn-primary w-full sm:w-auto"
-        pendingText="Montando seu cronograma…"
-      >
-        Gerar meu cronograma
-      </SubmitButton>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SubmitButton
+          className="btn btn-primary w-full sm:w-auto"
+          pendingText={
+            editing ? "Atualizando seu cronograma…" : "Montando seu cronograma…"
+          }
+        >
+          {editing ? "Salvar alterações" : "Gerar meu cronograma"}
+        </SubmitButton>
+        {planId && (
+          <Link
+            href={`/app/planos/${planId}`}
+            className="btn btn-ghost w-full sm:w-auto"
+          >
+            Cancelar
+          </Link>
+        )}
+      </div>
     </form>
   );
 }

@@ -69,3 +69,13 @@ export function parseEditalMeta(form: FormData): import('@/core/edital').EditalM
     return undefined;
   }
 }
+
+/**
+ * IDs das matérias já existentes (hidden `subjectId`), alinhados com as linhas que
+ * parseSubjects mantém (ele pula linhas sem nome). '' = matéria nova.
+ */
+export function parseSubjectIds(form: FormData): string[] {
+  const names = form.getAll('subjectName').map((v) => String(v).trim());
+  const ids = form.getAll('subjectId').map((v) => String(v));
+  return names.flatMap((n, i) => (n ? [ids[i] ?? ''] : []));
+} 
